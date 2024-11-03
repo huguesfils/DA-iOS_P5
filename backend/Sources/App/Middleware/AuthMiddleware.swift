@@ -7,8 +7,6 @@
 
 import Vapor
 
-
-
 struct AuthMiddleware: Middleware {
     static private var authTokens: [String] = []
     static func registerNewAuthToken() -> String {
