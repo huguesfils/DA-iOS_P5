@@ -1,10 +1,3 @@
-//
-//  AppViewModel.swift
-//  Aura
-//
-//  Created by Vincent Saluzzo on 29/09/2023.
-//
-
 import Foundation
 
 class AppViewModel: ObservableObject {

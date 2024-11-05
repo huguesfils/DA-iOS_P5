@@ -1,10 +1,3 @@
-//
-//  AuraApp.swift
-//  Aura
-//
-//  Created by Vincent Saluzzo on 29/09/2023.
-//
-
 import SwiftUI
 
 @main
@@ -28,12 +21,10 @@ struct AuraApp: App {
                                 Text("Transfer")
                             }
                     }
-                    
                 } else {
                     AuthenticationView(viewModel: viewModel.authenticationViewModel)
                         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
                                                 removal: .move(edge: .top).combined(with: .opacity)))
-                    
                 }
             }
             .accentColor(Color(hex: "#94A684"))
