@@ -78,4 +78,6 @@ class AuthenticationViewModel: ObservableObject {
         
         return true
     }
+    
+    //TODO: faire un network service qui gere les call api, le parsing... + concurrency -> plus de dispatchqueue
 }
