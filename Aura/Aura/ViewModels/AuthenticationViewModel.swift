@@ -4,31 +4,34 @@ import Foundation
 final class AuthenticationViewModel: ObservableObject {
     @Published var username: String = ""
     @Published var password: String = ""
-    
     @Published var showAlert: Bool = false
     @Published var alertMessage: String = ""
     
     let onLoginSucceed: (() -> ())
     
-    init(_ callback: @escaping () -> ()) {
+    private let networkService: NetworkServiceProtocol
+    
+    init(networkService: NetworkServiceProtocol = NetworkService.shared,
+        _ callback: @escaping () -> ()) {
+        self.networkService = networkService
         self.onLoginSucceed = callback
     }
     
     // MARK: - Login
     func login() async {
-        guard validateCredentials() else { return }
-        
-        let loginData = ["username": username, "password": password]
+        if let error = validateCredentials() {
+            alertMessage = error.errorMessage
+            showAlert = true
+            return
+        }
         
         do {
-            let response: AuthResponse = try await NetworkService.shared.sendRequest(
-                endpoint: .auth,
-                body: loginData
-                //TODO: Parametre dans l' enum du endpoint
-            )
-            NetworkService.shared.setAuthToken(response.token)
+            let response: AuthResponse = try await self.networkService.sendRequest(
+                endpoint: APIEndpoint.auth(email: username, password: password))
+            
+            self.networkService.setAuthToken(response.token)
             onLoginSucceed()
-        } catch let error as NetworkError {
+        } catch let error as AuraError {
             alertMessage = error.errorMessage
             showAlert = true
         } catch {
@@ -44,19 +47,15 @@ final class AuthenticationViewModel: ObservableObject {
         return emailPredicate.evaluate(with: email)
     }
     
-    private func validateCredentials() -> Bool {
+    private func validateCredentials() -> AuraError? {
         guard isValidEmail(username) else {
-            self.alertMessage = "Adresse e-mail invalide"
-            self.showAlert = true
-            return false
+            return .invalidEmail
         }
         
         guard !password.isEmpty else {
-            self.alertMessage = "Mot de passe invalide"
-            self.showAlert = true
-            return false
+            return .emptyPassword
         }
-        //TODO: améliorer l'alert password invalid
-        return true
+        
+        return nil
     }
 }

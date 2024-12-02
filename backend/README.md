@@ -28,7 +28,7 @@ Description: Il s'agit d'une route pour verifier si l'API est lancé. DOit retou
 
 ### `POST /auth`
 
-Description: Permet de s'authentifier dans l'API et de généré un token qui devra être utilisé dans les API /account
+Description: Permet de s'authentifier dans l'API et de générer un token qui devra être utilisé dans les API /account
 
 Body Content Type: `application/json`
 Body Format : 
