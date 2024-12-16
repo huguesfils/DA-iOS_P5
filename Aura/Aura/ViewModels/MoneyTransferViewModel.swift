@@ -1,13 +1,7 @@
-//
-//  MoneyTransferViewModel.swift
-//  Aura
-//
-//  Created by Vincent Saluzzo on 29/09/2023.
-//
-
 import Foundation
 
-class MoneyTransferViewModel: ObservableObject {
+@MainActor
+final class MoneyTransferViewModel: ObservableObject {
     @Published var recipient: String = ""
     @Published var amount: String = ""
     @Published var transferMessage: String = ""
@@ -21,16 +15,14 @@ class MoneyTransferViewModel: ObservableObject {
         self.networkService = networkService
     }
     
-    func sendMoney() {
+    func sendMoney() async {
         if let error = validateInputs() {
             alertMessage = error.errorMessage
             showAlert = true
             return
         }
         
-        Task {
-            await performTransfer()
-        }
+        await performTransfer()
     }
     
     private func performTransfer() async {
@@ -38,9 +30,9 @@ class MoneyTransferViewModel: ObservableObject {
         
         do {
             let transferRequest = TransferRequest(recipient: recipient, amount: Double(amount)!)
-//            try await networkService.sendRequest(endpoint: .transfer(request: transferRequest)) as Void
+            try await networkService.sendVoidRequest(endpoint: .transfer(request: transferRequest))
             
-            transferMessage = "Successfully transferred \(amount) to \(recipient)."
+            transferMessage = "Successfully transferred \(amount)€ to \(recipient)."
             isLoading = false
         } catch let error as AuraError {
             alertMessage = error.errorMessage
