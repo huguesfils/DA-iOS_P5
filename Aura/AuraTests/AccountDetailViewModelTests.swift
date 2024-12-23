@@ -3,17 +3,23 @@ import XCTest
 
 @MainActor
 final class AccountDetailViewModelTests: XCTestCase {
-    private var mockNetworkService: MockNetworkService!
+    private var mockSession: URLSession!
     private var viewModel: AccountDetailViewModel!
     
     override func setUp() {
         super.setUp()
-        mockNetworkService = MockNetworkService()
-        viewModel = AccountDetailViewModel(networkService: mockNetworkService)
+        
+        mockSession = makeMockSession()
+        let networkService = NetworkService(session: mockSession)
+        
+        viewModel = AccountDetailViewModel(networkService: networkService)
     }
 
     override func tearDown() {
-        mockNetworkService = nil
+        MockURLProtocol.responseData = nil
+        MockURLProtocol.response = nil
+        MockURLProtocol.error = nil
+        mockSession = nil
         viewModel = nil
         super.tearDown()
     }
@@ -27,7 +33,15 @@ final class AccountDetailViewModelTests: XCTestCase {
             AccountDetailsResponse.Transaction(value: -15.00, label: "Coffee")
         ]
         let mockResponse = AccountDetailsResponse(currentBalance: 1234.56, transactions: mockTransactions)
-        mockNetworkService.mockResponse = mockResponse
+        let mockData = try! JSONEncoder().encode(mockResponse)
+        
+        MockURLProtocol.responseData = mockData
+        MockURLProtocol.response = HTTPURLResponse(
+            url: URL(string: "http://127.0.0.1:8080/account/details")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
 
         // When
         await viewModel.fetchAccountDetails()
@@ -46,7 +60,12 @@ final class AccountDetailViewModelTests: XCTestCase {
     
     func testFetchAccountDetailsNotFoundError() async {
         // Given
-        mockNetworkService.mockError = AuraError.notFound
+        MockURLProtocol.response = HTTPURLResponse(
+            url: URL(string: "http://127.0.0.1:8080/account/details")!,
+            statusCode: 404,
+            httpVersion: nil,
+            headerFields: nil
+        )
 
         // When
         await viewModel.fetchAccountDetails()
@@ -61,7 +80,7 @@ final class AccountDetailViewModelTests: XCTestCase {
 
     func testFetchAccountDetailsUnknownError() async {
         // Given
-        mockNetworkService.mockError = NSError(domain: "Unknown", code: 0, userInfo: nil)
+        MockURLProtocol.error = NSError(domain: "Unknown", code: 0, userInfo: nil)
 
         // When
         await viewModel.fetchAccountDetails()

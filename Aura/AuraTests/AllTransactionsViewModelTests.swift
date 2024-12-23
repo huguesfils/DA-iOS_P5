@@ -3,17 +3,23 @@ import XCTest
 
 @MainActor
 final class AllTransactionsViewModelTests: XCTestCase {
-    private var mockNetworkService: MockNetworkService!
+    private var mockSession: URLSession!
     private var viewModel: AllTransactionsViewModel!
-
+    
     override func setUp() {
         super.setUp()
-        mockNetworkService = MockNetworkService()
-        viewModel = AllTransactionsViewModel(networkService: mockNetworkService)
+        
+        mockSession = makeMockSession()
+        let networkService = NetworkService(session: mockSession)
+        
+        viewModel = AllTransactionsViewModel(networkService: networkService)
     }
 
     override func tearDown() {
-        mockNetworkService = nil
+        MockURLProtocol.responseData = nil
+        MockURLProtocol.response = nil
+        MockURLProtocol.error = nil
+        mockSession = nil
         viewModel = nil
         super.tearDown()
     }
@@ -26,7 +32,15 @@ final class AllTransactionsViewModelTests: XCTestCase {
             AccountDetailsResponse.Transaction(value: -30.00, label: "Gym")
         ]
         let mockResponse = AccountDetailsResponse(currentBalance: 500.0, transactions: mockTransactions)
-        mockNetworkService.mockResponse = mockResponse
+        let mockData = try! JSONEncoder().encode(mockResponse)
+        
+        MockURLProtocol.responseData = mockData
+        MockURLProtocol.response = HTTPURLResponse(
+            url: URL(string: "http://127.0.0.1:8080/transactions")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
 
         // When
         await viewModel.fetchAllTransactions()
@@ -44,8 +58,13 @@ final class AllTransactionsViewModelTests: XCTestCase {
     
     func testFetchAllTransactionsNotFoundError() async {
         // Given
-        mockNetworkService.mockError = AuraError.notFound
-
+        MockURLProtocol.response = HTTPURLResponse(
+            url: URL(string: "http://127.0.0.1:8080/transactions")!,
+            statusCode: 404,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
         // When
         await viewModel.fetchAllTransactions()
 
@@ -58,7 +77,7 @@ final class AllTransactionsViewModelTests: XCTestCase {
     
     func testFetchAllTransactionsUnknownError() async {
         // Given
-        mockNetworkService.mockError = NSError(domain: "Unknown", code: 0, userInfo: nil)
+        MockURLProtocol.error = NSError(domain: "Unknown", code: 0, userInfo: nil)
 
         // When
         await viewModel.fetchAllTransactions()

@@ -54,7 +54,7 @@ struct MoneyTransferView: View {
             
             Button(action: {
                 Task {
-                    viewModel.sendMoney
+                    await viewModel.sendMoney()
                 }
             }, label: {
                 HStack {

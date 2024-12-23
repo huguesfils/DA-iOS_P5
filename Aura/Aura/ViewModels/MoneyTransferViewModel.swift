@@ -53,7 +53,7 @@ final class MoneyTransferViewModel: ObservableObject {
     }
     
     private func isValidPhone(_ phone: String) -> Bool {
-        let phoneRegex = "^\\+33[1-9][0-9]{8}$"
+        let phoneRegex = "^\\+33[1-9][0-9]{8}$" // ou 0
         let phonePredicate = NSPredicate(format: "SELF MATCHES %@", phoneRegex)
         return phonePredicate.evaluate(with: phone)
     }

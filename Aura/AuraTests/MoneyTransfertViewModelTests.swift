@@ -3,17 +3,25 @@ import XCTest
 
 @MainActor
 final class MoneyTransferViewModelTests: XCTestCase {
-    private var mockNetworkService: MockNetworkService!
+    private var mockSession: URLSession!
     private var viewModel: MoneyTransferViewModel!
 
     override func setUp() {
         super.setUp()
-        mockNetworkService = MockNetworkService()
-        viewModel = MoneyTransferViewModel(networkService: mockNetworkService)
+        
+        // Configurez une session avec MockURLProtocol
+        mockSession = makeMockSession()
+        let networkService = NetworkService(session: mockSession)
+        
+        viewModel = MoneyTransferViewModel(networkService: networkService)
     }
 
     override func tearDown() {
-        mockNetworkService = nil
+        // Réinitialisez MockURLProtocol pour éviter les interférences entre tests
+        MockURLProtocol.responseData = nil
+        MockURLProtocol.response = nil
+        MockURLProtocol.error = nil
+        mockSession = nil
         viewModel = nil
         super.tearDown()
     }
@@ -32,7 +40,7 @@ final class MoneyTransferViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.isLoading)
     }
     
-    func testInvalidAmountShowsError() async{
+    func testInvalidAmountShowsError() async {
         // Given
         viewModel.recipient = "test@example.com"
         viewModel.amount = "-50"
@@ -46,7 +54,7 @@ final class MoneyTransferViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.isLoading)
     }
 
-    func testEmptyAmountShowsError() async{
+    func testEmptyAmountShowsError() async {
         // Given
         viewModel.recipient = "test@example.com"
         viewModel.amount = ""
@@ -64,12 +72,19 @@ final class MoneyTransferViewModelTests: XCTestCase {
         // Given
         viewModel.recipient = "test@example.com"
         viewModel.amount = "100"
-        mockNetworkService.mockResponse = ()
+        
+        // Configurez MockURLProtocol pour simuler une réponse 200
+        MockURLProtocol.response = HTTPURLResponse(
+            url: URL(string: "http://127.0.0.1:8080/transfer")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        MockURLProtocol.responseData = nil  // Pas de corps de réponse nécessaire pour ce cas
 
         // When
         await viewModel.sendMoney()
         
-
         // Then
         XCTAssertEqual(viewModel.transferMessage, "Successfully transferred 100€ to test@example.com.")
         XCTAssertFalse(viewModel.showAlert)
@@ -80,7 +95,14 @@ final class MoneyTransferViewModelTests: XCTestCase {
         // Given
         viewModel.recipient = "test@example.com"
         viewModel.amount = "100"
-        mockNetworkService.mockError = AuraError.notFound
+        
+        // Configurez MockURLProtocol pour simuler une erreur 404 Not Found
+        MockURLProtocol.response = HTTPURLResponse(
+            url: URL(string: "http://127.0.0.1:8080/transfer")!,
+            statusCode: 404,
+            httpVersion: nil,
+            headerFields: nil
+        )
 
         // When
         await viewModel.sendMoney()
@@ -91,19 +113,20 @@ final class MoneyTransferViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.isLoading)
     }
     
-//    func testSendMoneyUnknownError() async {
-//        // Given
-//        viewModel.recipient = "test@example.com"
-//        viewModel.amount = "100"
-//        mockNetworkService.mockError = NSError(domain: "Unknown", code: 0, userInfo: nil)
-//
-//        // When
-//        viewModel.sendMoney()
-//        await Task.yield()
-//
-//        // Then
-//        XCTAssertEqual(viewModel.alertMessage, "Une erreur inconnue est survenue.")
-//        XCTAssertTrue(viewModel.showAlert)
-//        XCTAssertFalse(viewModel.isLoading)
-//    }
+    func testSendMoneyUnknownError() async {
+        // Given
+        viewModel.recipient = "test@example.com"
+        viewModel.amount = "100"
+        
+        // Configurez MockURLProtocol pour simuler une erreur inconnue
+        MockURLProtocol.error = NSError(domain: "Unknown", code: 0, userInfo: nil)
+
+        // When
+        await viewModel.sendMoney()
+
+        // Then
+        XCTAssertEqual(viewModel.alertMessage, "Une erreur inconnue est survenue.")
+        XCTAssertTrue(viewModel.showAlert)
+        XCTAssertFalse(viewModel.isLoading)
+    }
 }
