@@ -55,25 +55,25 @@ final class NetworkService: NetworkServiceProtocol {
         guard let url = URL(string: baseURL + endpoint.path) else {
             throw AuraError.badURL
         }
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
-        
+
         if let token = authToken {
             request.setValue(token, forHTTPHeaderField: "token")
         }
-        
+
         if let body = endpoint.body {
             request.httpBody = try JSONEncoder().encode(body)
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
+
+        let (data, response) = try await session.data(for: request)
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw AuraError.unknownError(statusCode: -1)
         }
-        
+
         return (data, httpResponse.statusCode)
     }
     
@@ -84,7 +84,7 @@ final class NetworkService: NetworkServiceProtocol {
                let message = error["error"] {
                 return AuraError.customError(message: message)
             } else {
-                return AuraError.customError(message: "Requête invalide. Vérifiez vos informations.")
+                return AuraError.unauthorized
             }
         case 401:
             return AuraError.unauthorized

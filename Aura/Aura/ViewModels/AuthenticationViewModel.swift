@@ -24,11 +24,11 @@ final class AuthenticationViewModel: ObservableObject {
             showAlert = true
             return
         }
-        
+
         do {
             let response: AuthResponse = try await self.networkService.sendRequest(
-                endpoint: APIEndpoint.auth(email: username, password: password))
-            
+                endpoint: APIEndpoint.auth(email: username, password: password)
+            )
             self.networkService.setAuthToken(response.token)
             onLoginSucceed()
         } catch let error as AuraError {

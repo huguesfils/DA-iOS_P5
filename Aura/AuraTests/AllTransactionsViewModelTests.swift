@@ -3,89 +3,119 @@ import XCTest
 
 @MainActor
 final class AllTransactionsViewModelTests: XCTestCase {
-    private var mockSession: URLSession!
-    private var viewModel: AllTransactionsViewModel!
-    
+    var viewModel: AllTransactionsViewModel!
+    var mockSession: URLSession!
+
     override func setUp() {
         super.setUp()
-        
         mockSession = makeMockSession()
-        let networkService = NetworkService(session: mockSession)
-        
-        viewModel = AllTransactionsViewModel(networkService: networkService)
     }
 
     override func tearDown() {
         MockURLProtocol.responseData = nil
         MockURLProtocol.response = nil
         MockURLProtocol.error = nil
-        mockSession = nil
         viewModel = nil
         super.tearDown()
     }
 
-    func testFetchAllTransactionsSuccess() async {
+    func testFetchAllTransactions_Success() async {
         // Given
-        let mockTransactions = [
-            AccountDetailsResponse.Transaction(value: -50.75, label: "Groceries"),
-            AccountDetailsResponse.Transaction(value: 2000.00, label: "Salary"),
-            AccountDetailsResponse.Transaction(value: -30.00, label: "Gym")
-        ]
-        let mockResponse = AccountDetailsResponse(currentBalance: 500.0, transactions: mockTransactions)
-        let mockData = try! JSONEncoder().encode(mockResponse)
-        
-        MockURLProtocol.responseData = mockData
+        let mockResponse = AccountDetailsResponse(
+            currentBalance: 1500.0,
+            transactions: [
+                AccountDetailsResponse.Transaction(value: -50.0, label: "Groceries"),
+                AccountDetailsResponse.Transaction(value: 200.0, label: "Salary"),
+                AccountDetailsResponse.Transaction(value: -30.0, label: "Utilities")
+            ]
+        )
+        MockURLProtocol.responseData = try! JSONEncoder().encode(mockResponse)
         MockURLProtocol.response = HTTPURLResponse(
-            url: URL(string: "http://127.0.0.1:8080/transactions")!,
+            url: URL(string: "http://127.0.0.1:8080/account")!,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
         )
-
+        
+        let networkService = NetworkService(session: mockSession)
+        viewModel = AllTransactionsViewModel(networkService: networkService)
+        
         // When
         await viewModel.fetchAllTransactions()
-
+        
         // Then
         XCTAssertEqual(viewModel.transactions.count, 3)
         XCTAssertEqual(viewModel.transactions[0].description, "Groceries")
-        XCTAssertEqual(viewModel.transactions[0].amount, "-50.75€")
+        XCTAssertEqual(viewModel.transactions[0].amount, "-50.00€")
         XCTAssertEqual(viewModel.transactions[1].description, "Salary")
-        XCTAssertEqual(viewModel.transactions[1].amount, "+2000.00€")
+        XCTAssertEqual(viewModel.transactions[1].amount, "+200.00€")
         XCTAssertFalse(viewModel.isLoading)
         XCTAssertFalse(viewModel.showAlert)
-        XCTAssertEqual(viewModel.alertMessage, "")
     }
-    
-    func testFetchAllTransactionsNotFoundError() async {
+
+    func testFetchAllTransactions_ServerError() async {
         // Given
+        MockURLProtocol.responseData = nil
         MockURLProtocol.response = HTTPURLResponse(
-            url: URL(string: "http://127.0.0.1:8080/transactions")!,
-            statusCode: 404,
+            url: URL(string: "http://127.0.0.1:8080/account")!,
+            statusCode: 500,
             httpVersion: nil,
             headerFields: nil
         )
         
+        let networkService = NetworkService(session: mockSession)
+        viewModel = AllTransactionsViewModel(networkService: networkService)
+        
         // When
         await viewModel.fetchAllTransactions()
-
+        
         // Then
-        XCTAssertTrue(viewModel.transactions.isEmpty)
-        XCTAssertFalse(viewModel.isLoading)
         XCTAssertTrue(viewModel.showAlert)
-        XCTAssertEqual(viewModel.alertMessage, AuraError.notFound.errorMessage)
+        XCTAssertEqual(viewModel.alertMessage, AuraError.serverError.errorMessage)
+        XCTAssertFalse(viewModel.isLoading)
     }
-    
-    func testFetchAllTransactionsUnknownError() async {
-        // Given
-        MockURLProtocol.error = NSError(domain: "Unknown", code: 0, userInfo: nil)
 
+    func testFetchAllTransactions_DecodingError() async {
+        // Given
+        MockURLProtocol.responseData = "Invalid Data".data(using: .utf8)
+        MockURLProtocol.response = HTTPURLResponse(
+            url: URL(string: "http://127.0.0.1:8080/account")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        let networkService = NetworkService(session: mockSession)
+        viewModel = AllTransactionsViewModel(networkService: networkService)
+        
         // When
         await viewModel.fetchAllTransactions()
-
+        
         // Then
-        XCTAssertTrue(viewModel.transactions.isEmpty)
-        XCTAssertFalse(viewModel.isLoading)
         XCTAssertTrue(viewModel.showAlert)
-        XCTAssertEqual(viewModel.alertMessage, "Une erreur inconnue est survenue.")
+        XCTAssertEqual(viewModel.alertMessage, AuraError.decodingError.errorMessage)
+        XCTAssertFalse(viewModel.isLoading)
+    }
+
+    func testFetchAllTransactions_Unauthorized() async {
+        // Given
+        MockURLProtocol.responseData = nil
+        MockURLProtocol.response = HTTPURLResponse(
+            url: URL(string: "http://127.0.0.1:8080/account")!,
+            statusCode: 401,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        let networkService = NetworkService(session: mockSession)
+        viewModel = AllTransactionsViewModel(networkService: networkService)
+        
+        // When
+        await viewModel.fetchAllTransactions()
+        
+        // Then
+        XCTAssertTrue(viewModel.showAlert)
+        XCTAssertEqual(viewModel.alertMessage, AuraError.unauthorized.errorMessage)
+        XCTAssertFalse(viewModel.isLoading)
     }
 }

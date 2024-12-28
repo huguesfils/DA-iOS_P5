@@ -27,12 +27,14 @@ class MockURLProtocol: URLProtocol {
         }
         client?.urlProtocolDidFinishLoading(self)
     }
-
+    
     override func stopLoading() {}
 }
 
 func makeMockSession() -> URLSession {
     let config = URLSessionConfiguration.ephemeral
+    config.requestCachePolicy = .reloadIgnoringLocalCacheData
+    config.urlCache = nil
     config.protocolClasses = [MockURLProtocol.self]
     return URLSession(configuration: config)
 }

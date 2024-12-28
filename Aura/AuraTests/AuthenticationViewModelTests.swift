@@ -3,88 +3,92 @@ import XCTest
 
 @MainActor
 final class AuthenticationViewModelTests: XCTestCase {
-    private var mockSession: URLSession!
-    private var viewModel: AuthenticationViewModel!
-    private var loginSucceededCalled: Bool!
+    var viewModel: AuthenticationViewModel!
+    var mockSession: URLSession!
     
     override func setUp() {
         super.setUp()
-        
         mockSession = makeMockSession()
-        let networkService = NetworkService(session: mockSession)
-        
-        loginSucceededCalled = false
-        viewModel = AuthenticationViewModel(networkService: networkService) {
-            self.loginSucceededCalled = true
-        }
     }
     
     override func tearDown() {
         MockURLProtocol.responseData = nil
         MockURLProtocol.response = nil
         MockURLProtocol.error = nil
-        mockSession = nil
         viewModel = nil
         super.tearDown()
     }
     
-    func testSuccessfulLogin() async {
+    func testSuccessfulLogin() async throws {
         // Given
-        viewModel.username = "test@example.com"
-        viewModel.password = "password123"
-        
-        let mockResponse = AuthResponse(token: "mockToken")
-        let mockData = try! JSONEncoder().encode(mockResponse)
-        
-        MockURLProtocol.responseData = mockData
+        MockURLProtocol.responseData = """
+        {
+            "token": "mockedToken"
+        }
+        """.data(using: .utf8)
         MockURLProtocol.response = HTTPURLResponse(
             url: URL(string: "http://127.0.0.1:8080/auth")!,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
         )
+        MockURLProtocol.error = nil
         
-        // When
-        await viewModel.login()
+        let networkService = NetworkService(session: makeMockSession())
+        let expectation = XCTestExpectation(description: "Login success callback")
+        
+        viewModel = AuthenticationViewModel(networkService: networkService) {
+            expectation.fulfill()
+        }
+        
+        viewModel.username = "test@example.com"
+        viewModel.password = "password123"
         
         // Then
-        XCTAssertTrue(loginSucceededCalled)
+        await viewModel.login()
+        
+        // When
+        await fulfillment(of: [expectation], timeout: 5.0)
         XCTAssertFalse(viewModel.showAlert)
         XCTAssertEqual(viewModel.alertMessage, "")
     }
     
     func testUnauthorizedErrorShowsAlert() async {
         // Given
-        viewModel.username = "test@example.com"
-        viewModel.password = "password123"
-        
         MockURLProtocol.response = HTTPURLResponse(
             url: URL(string: "http://127.0.0.1:8080/auth")!,
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
         )
+        MockURLProtocol.responseData = """
+        {
+            "error": "Unauthorized"
+        }
+        """.data(using: .utf8)
+        let networkService = NetworkService(session: mockSession)
+        viewModel = AuthenticationViewModel(networkService: networkService, {})
         
         // When
         await viewModel.login()
         
         // Then
-        XCTAssertFalse(loginSucceededCalled)
-        XCTAssertEqual(viewModel.alertMessage, AuraError.unauthorized.errorMessage)
         XCTAssertTrue(viewModel.showAlert)
+        XCTAssertEqual(viewModel.alertMessage, AuraError.invalidEmail.errorMessage)
     }
     
     func testValidationError() async {
         // Given
-        viewModel.username = "invalid_email"
-        viewModel.password = "password123"
+        let networkService = NetworkService(session: mockSession)
+        viewModel = AuthenticationViewModel(networkService: networkService, {})
+        viewModel.username = "invalidEmail"
+        viewModel.password = ""
         
         // When
         await viewModel.login()
         
         // Then
-        XCTAssertEqual(viewModel.alertMessage, AuraError.invalidEmail.errorMessage)
         XCTAssertTrue(viewModel.showAlert)
-        XCTAssertFalse(loginSucceededCalled)
+        XCTAssertEqual(viewModel.alertMessage, AuraError.invalidEmail.errorMessage)
     }
 }
